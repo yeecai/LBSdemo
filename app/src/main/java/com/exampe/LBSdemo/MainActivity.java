@@ -17,7 +17,12 @@ import com.baidu.location.BDLocationListener;
 import com.baidu.location.LocationClient;
 import com.baidu.location.LocationClientOption;
 import com.baidu.mapapi.SDKInitializer;
+import com.baidu.mapapi.map.BaiduMap;
+import com.baidu.mapapi.map.MapStatusUpdate;
+import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.MyLocationData;
+import com.baidu.mapapi.model.LatLng;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +32,8 @@ public class MainActivity extends AppCompatActivity {
     LocationClient mLocatioClient;
     TextView positionText;
     private MapView mapView;
+    private boolean firstOpen = true;
+    private BaiduMap baiduMap;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +72,9 @@ public class MainActivity extends AppCompatActivity {
         } else {
             requestLocation();
         }
+
+        baiduMap = mapView.getMap();
+        baiduMap.setMyLocationEnabled(true);
     }
 
     private void requestLocation() {
@@ -100,15 +110,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        mLocatioClient.stop();
-    }
 
     private class MyLocationListener implements BDLocationListener {
         @Override
         public void onReceiveLocation(BDLocation bdLocation) {
+
+            if (bdLocation.getLocType() == BDLocation.TypeNetWorkLocation || bdLocation.getLocType() == BDLocation.TypeGpsLocation) {
+                navigateTo(bdLocation);
+            }
+
             StringBuilder currentPosition = new StringBuilder();
             currentPosition.append("Latitude: ").append(bdLocation.getLatitude()).append("\n");
             currentPosition.append("Longtitude: ").append(bdLocation.getLongitude()).append("\n");
@@ -127,4 +137,32 @@ public class MainActivity extends AppCompatActivity {
 
         }
     }
+
+    private void navigateTo(BDLocation bdLocation) {
+        if (firstOpen) {
+            LatLng ll = new LatLng(bdLocation.getLatitude(), bdLocation.getLongitude());
+            MapStatusUpdate update = MapStatusUpdateFactory.newLatLng(ll);
+            baiduMap.animateMapStatus(update);
+            update = MapStatusUpdateFactory.zoomTo(16f);
+            baiduMap.animateMapStatus(update);
+            firstOpen = false;
+        }
+        //show me on map
+
+        MyLocationData.Builder locationBuilder = new MyLocationData.Builder();
+        locationBuilder.latitude(bdLocation.getLatitude());
+        locationBuilder.longitude(bdLocation.getLongitude());
+        MyLocationData locationData = locationBuilder.build();
+        baiduMap.setMyLocationData(locationData);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mLocatioClient.stop();
+        mapView.onDestroy();
+        baiduMap.setMyLocationEnabled(false);
+    }
+
+
 }
